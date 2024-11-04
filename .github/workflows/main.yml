@@ -3,7 +3,7 @@ name: Prepare Datasets and Evaluate Spell Checkers
 on: 
   push:
     branches:
-      - main  # Only runs on push to main branch; adjust as needed
+      - main
   workflow_dispatch: # Allows manual run
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
@@ -26,10 +26,10 @@ jobs:
 
       - name: Run prepare_datasets.py
         run: |
-          python prepare_datasets.py
+          python src/prepare_datasets.py
 
       - name: Run evaluate_spell_checkers.py with API key
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python evaluate_spell_checkers.py
+          python src/evaluate_spell_checkers.py
