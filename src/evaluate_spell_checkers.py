@@ -15,7 +15,7 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Load the combined dataset
-def load_combined_dataset(filepath='combined_spelling_dataset.csv'):
+def load_combined_dataset(filepath='datasets/combined_spelling_dataset.csv'):
     return pd.read_csv(filepath)
 
 # Initialize spell checkers

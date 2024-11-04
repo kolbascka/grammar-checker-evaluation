@@ -2,7 +2,7 @@ import random
 import pandas as pd
 
 # Load misspelled dataset with multiple misspelled forms per correct word
-def load_misspelled_dataset(filepath='misspelled_dataset.txt'):
+def load_misspelled_dataset(filepath='datasets/misspelled_dataset.txt'):
     data = []
     with open(filepath, 'r') as file:
         for line in file:
@@ -42,13 +42,13 @@ def typo_maker(word):
     return word
 
 # Load clean text for synthetic data generation
-def load_clean_text(filepath='correctly_spelled_dataset'):
+def load_clean_text(filepath='datasets/correctly_spelled_dataset'):
     with open(filepath, 'r') as file:
         clean_sentences = file.readlines()
     return clean_sentences
 
 # Generate synthetic dataset
-def generate_synthetic_dataset(clean_text_filepath='correctly_spelled_dataset', error_rate=0.1):
+def generate_synthetic_dataset(clean_text_filepath='datasets/correctly_spelled_dataset', error_rate=0.1):
     clean_sentences = load_clean_text(clean_text_filepath)
     synthetic_data = []
     for sentence in clean_sentences:
@@ -56,14 +56,14 @@ def generate_synthetic_dataset(clean_text_filepath='correctly_spelled_dataset', 
     return pd.DataFrame(synthetic_data, columns=["Misspelled", "Correct"])
 
 # Combine misspelled dataset with synthetic data
-def combine_datasets(misspelled_filepath='misspelled_dataset.txt', clean_text_filepath='correctly_spelled_dataset', error_rate=0.1):
+def combine_datasets(misspelled_filepath='datasets/misspelled_dataset.txt', clean_text_filepath='correctly_spelled_dataset', error_rate=0.1):
     misspelled_df = load_misspelled_dataset(misspelled_filepath)
     synthetic_df = generate_synthetic_dataset(clean_text_filepath, error_rate)
     combined_df = pd.concat([misspelled_df, synthetic_df], ignore_index=True)
     return combined_df
 
 # Save combined dataset
-def save_combined_dataset(output_filepath='combined_spelling_dataset.csv'):
+def save_combined_dataset(output_filepath='datasets/combined_spelling_dataset.csv'):
     combined_df = combine_datasets()
     combined_df.to_csv(output_filepath, index=False)
     print(f"Combined dataset saved to {output_filepath}")
