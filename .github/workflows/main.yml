@@ -1,0 +1,35 @@
+name: Prepare Datasets and Evaluate Spell Checkers
+
+on: 
+  push:
+    branches:
+      - main  # Only runs on push to main branch; adjust as needed
+  workflow_dispatch: # Allows manual run
+
+jobs:
+  run-scripts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install python-dotenv
+
+      - name: Run prepare_datasets.py
+        run: |
+          python prepare_datasets.py
+
+      - name: Run evaluate_spell_checkers.py with API key
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python evaluate_spell_checkers.py
