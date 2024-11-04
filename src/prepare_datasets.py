@@ -56,7 +56,7 @@ def generate_synthetic_dataset(clean_text_filepath='datasets/correctly_spelled_d
     return pd.DataFrame(synthetic_data, columns=["Misspelled", "Correct"])
 
 # Combine misspelled dataset with synthetic data
-def combine_datasets(misspelled_filepath='datasets/misspelled_dataset.txt', clean_text_filepath='correctly_spelled_dataset', error_rate=0.1):
+def combine_datasets(misspelled_filepath='datasets/misspelled_dataset.txt', clean_text_filepath='datasets/correctly_spelled_dataset', error_rate=0.1):
     misspelled_df = load_misspelled_dataset(misspelled_filepath)
     synthetic_df = generate_synthetic_dataset(clean_text_filepath, error_rate)
     combined_df = pd.concat([misspelled_df, synthetic_df], ignore_index=True)
