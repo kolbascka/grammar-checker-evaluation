@@ -1,5 +1,4 @@
 import random
-import re
 import pandas as pd
 
 # Load misspelled dataset with multiple misspelled forms per correct word
