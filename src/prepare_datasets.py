@@ -20,8 +20,7 @@ def load_misspelled_dataset(filepath='datasets/misspelled_dataset.txt'):
                         data.append((misspelled, correct))
             else:
                 print(f"Skipping malformed line: {line.strip()}")
-    
-    # Return as DataFrame
+
     return pd.DataFrame(data, columns=["Misspelled", "Correct"])
 
 # Function to introduce synthetic typos into a clean sentence
@@ -62,19 +61,10 @@ def combine_datasets(misspelled_filepath='datasets/misspelled_dataset.txt', clea
     combined_df = pd.concat([misspelled_df, synthetic_df], ignore_index=True)
     return combined_df
 
-# Save combined dataset
 def save_combined_dataset(output_filepath='datasets/combined_spelling_dataset.csv'):
     combined_df = combine_datasets()
     combined_df.to_csv(output_filepath, index=False)
     print(f"Combined dataset saved to {output_filepath}")
 
-# Evaluation function placeholder (update with chosen spell checkers later)
-def evaluate_spell_checkers(combined_df):
-    # Placeholder for spell-checker evaluations on the combined dataset
-    # Each spell checker would evaluate corrections based on "Misspelled" and "Correct" columns
-    # Implement different evaluation metrics here (e.g., Accuracy, F1, Levenshtein Distance)
-    pass
-
-# Main execution
 if __name__ == "__main__":
     save_combined_dataset()

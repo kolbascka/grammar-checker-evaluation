@@ -3,58 +3,63 @@ from spellchecker import SpellChecker
 from textblob import TextBlob
 from Levenshtein import distance as levenshtein_distance
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import openai
+from openai import OpenAI, OpenAIError
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file (for local testing)
 load_dotenv()
 
-# Retrieve OpenAI API key from environment variable
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Load the combined dataset
 def load_combined_dataset(filepath='datasets/combined_spelling_dataset.csv'):
     return pd.read_csv(filepath)
 
-# Initialize spell checkers
 spellchecker = SpellChecker()
 
-# Spell-checking function using PySpellChecker
 def check_spelling_pyspellchecker(word):
     corrected = spellchecker.correction(word)
     return corrected if corrected else word  # Return original word if correction is None
 
-# Spell-checking function using TextBlob (alternative to Hunspell)
 def check_spelling_textblob(word):
     blob = TextBlob(word)
     corrected = blob.correct()
     return str(corrected) if corrected else word  # Return original word if correction is None
 
-# Spell-checking function using fine-tuned BERT model
-def check_spelling_finetuned_bert(word):
-    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")  # Replace with fine-tuned model if available
-    model = AutoModelForSequenceClassification.from_pretrained("path_to_finetuned_model")
+def check_spelling_finetuned_model(word):
+    tokenizer = AutoTokenizer.from_pretrained("pszemraj/grammar-synthesis-small")
+    model = AutoModelForSeq2SeqLM.from_pretrained("pszemraj/grammar-synthesis-small")
+
     inputs = tokenizer(word, return_tensors="pt")
     with torch.no_grad():
-        logits = model(**inputs).logits
-    prediction = torch.argmax(logits, dim=-1)
-    return tokenizer.decode(prediction[0])
+        outputs = model.generate(**inputs)
+    corrected = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return corrected
 
-# Spell-checking function using OpenAI's GPT-3
+# Initialize the OpenAI client
+client = OpenAI(
+    api_key=os.environ.get("OPENAI_API_KEY")
+)
+
 def check_spelling_gpt3(word):
-    prompt = f"Correct the following word for spelling errors: {word}"
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=prompt,
-        max_tokens=5,
-        temperature=0
-    )
-    corrected = response.choices[0].text.strip()
-    return corrected if corrected else word  # Return original word if correction is None
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "user", "content": f"Correct the following word for spelling errors: {word}"}
+            ]
+        )
 
-# Evaluate a spell checker on the dataset with None handling
+        corrected = response.choices[0].message.content.strip()
+        return corrected
+
+    except OpenAIError as e:
+        print("OpenAI Error:", e)
+        return word  # Return the original word if there's an error
+
+
 def evaluate_spell_checker(spell_checker_func, dataset):
     results = []
     for _, row in dataset.iterrows():
@@ -66,37 +71,32 @@ def evaluate_spell_checker(spell_checker_func, dataset):
         accuracy = 1 if corrected == correct else 0
         levenshtein = levenshtein_distance(corrected, correct) if corrected and correct else float('inf')
         results.append((misspelled, correct, corrected, accuracy, levenshtein))
-    
-    # Convert to DataFrame for analysis
+
     return pd.DataFrame(results, columns=['Misspelled', 'Correct', 'Corrected', 'Accuracy', 'Levenshtein'])
 
 # Main function to run evaluations and calculate metrics
 def main():
-    dataset = load_combined_dataset()
+    dataset = load_combined_dataset().sample(n=70)
     
-    # Evaluate using PySpellChecker
+    # Evaluate using each of the libraries/models
     print("Evaluating with PySpellChecker...")
     pyspell_results = evaluate_spell_checker(check_spelling_pyspellchecker, dataset)
     print(pyspell_results[['Accuracy', 'Levenshtein']].mean())
 
-    # Evaluate using TextBlob (alternative to Hunspell)
     print("Evaluating with TextBlob...")
     textblob_results = evaluate_spell_checker(check_spelling_textblob, dataset)
     print(textblob_results[['Accuracy', 'Levenshtein']].mean())
-    
-    # Evaluate using Fine-tuned BERT model
-    print("Evaluating with Fine-tuned BERT...")
-    bert_results = evaluate_spell_checker(check_spelling_finetuned_bert, dataset)
-    print(bert_results[['Accuracy', 'Levenshtein']].mean())
 
-    # Evaluate using OpenAI GPT-3
+    print("Evaluating with Fine-tuned model...")
+    fine_tuned_results = evaluate_spell_checker(check_spelling_finetuned_model, dataset)
+    print(fine_tuned_results[['Accuracy', 'Levenshtein']].mean())
+
     print("Evaluating with OpenAI GPT-3...")
     gpt3_results = evaluate_spell_checker(check_spelling_gpt3, dataset)
     print(gpt3_results[['Accuracy', 'Levenshtein']].mean())
 
-    # Calculate additional metrics if needed
-    for results, name in zip([pyspell_results, textblob_results, bert_results, gpt3_results],
-                             ["PySpellChecker", "TextBlob", "BERT", "GPT-3"]):
+    for results, name in zip([pyspell_results, textblob_results, fine_tuned_results, gpt3_results],
+                             ["PySpellChecker", "TextBlob", "Fine tuned model", "GPT-3"]):
         print(f"{name} Accuracy: {results['Accuracy'].mean()}")
         print(f"{name} Average Levenshtein Distance: {results['Levenshtein'].mean()}")
 
