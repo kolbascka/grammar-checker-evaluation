@@ -1,14 +1,14 @@
+import os
 import pandas as pd
+from dotenv import load_dotenv
 from spellchecker import SpellChecker
 from textblob import TextBlob
 from Levenshtein import distance as levenshtein_distance
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from sklearn.metrics import precision_score, recall_score, f1_score
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import openai
 from openai import OpenAI, OpenAIError
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -60,45 +60,73 @@ def check_spelling_gpt3(word):
         return word  # Return the original word if there's an error
 
 
-def evaluate_spell_checker(spell_checker_func, dataset):
+def evaluate_spell_checker(spell_checker_func, dataset, output_file="evaluation_metrics_summary.csv"):
     results = []
+    y_true = []
+    y_pred = []
+
     for _, row in dataset.iterrows():
         misspelled = row['Misspelled']
         correct = row['Correct']
         corrected = spell_checker_func(misspelled)
         
-        # Calculate metrics, with None handling
+        # Calculate basic metrics
         accuracy = 1 if corrected == correct else 0
         levenshtein = levenshtein_distance(corrected, correct) if corrected and correct else float('inf')
+        
+        # Append true and predicted labels for later evaluation
+        y_true.append(correct == misspelled)
+        y_pred.append(correct == corrected)
+        
         results.append((misspelled, correct, corrected, accuracy, levenshtein))
 
-    return pd.DataFrame(results, columns=['Misspelled', 'Correct', 'Corrected', 'Accuracy', 'Levenshtein'])
+    # Convert to DataFrame for easier analysis
+    results_df = pd.DataFrame(results, columns=['Misspelled', 'Correct', 'Corrected', 'Accuracy', 'Levenshtein'])
 
-# Main function to run evaluations and calculate metrics
+    # Calculate overall metrics
+    avg_accuracy = results_df['Accuracy'].mean()
+    avg_levenshtein = results_df['Levenshtein'].mean()
+    precision = precision_score(y_true, y_pred, average="macro", zero_division=0)
+    recall = recall_score(y_true, y_pred, average="macro", zero_division=0)
+    f1 = f1_score(y_true, y_pred, average="macro", zero_division=0)
+
+    # Save metrics to dictionary and then to CSV
+    metrics = {
+        "Model": spell_checker_func.__name__,
+        "Accuracy": avg_accuracy,
+        "Average Levenshtein Distance": avg_levenshtein,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1
+    }
+
+    # Append metrics to CSV file
+    metrics_df = pd.DataFrame([metrics])
+    with open(output_file, 'a') as f:
+        metrics_df.to_csv(f, header=f.tell()==0, index=False)
+
+    print(f"Metrics for {spell_checker_func.__name__} saved to {output_file}")
+    return results_df
+
 def main():
     dataset = load_combined_dataset().sample(n=70)
-    
-    # Evaluate using each of the libraries/models
+    output_file = "evaluation_metrics_summary.csv"
+
+    # Clear the output file at the beginning of each run
+    with open(output_file, 'w') as f:
+        f.write('')  # Empty the file before appending new metrics
+
     print("Evaluating with PySpellChecker...")
-    pyspell_results = evaluate_spell_checker(check_spelling_pyspellchecker, dataset)
-    print(pyspell_results[['Accuracy', 'Levenshtein']].mean())
+    evaluate_spell_checker(check_spelling_pyspellchecker, dataset, output_file)
 
     print("Evaluating with TextBlob...")
-    textblob_results = evaluate_spell_checker(check_spelling_textblob, dataset)
-    print(textblob_results[['Accuracy', 'Levenshtein']].mean())
+    evaluate_spell_checker(check_spelling_textblob, dataset, output_file)
 
     print("Evaluating with Fine-tuned model...")
-    fine_tuned_results = evaluate_spell_checker(check_spelling_finetuned_model, dataset)
-    print(fine_tuned_results[['Accuracy', 'Levenshtein']].mean())
+    evaluate_spell_checker(check_spelling_finetuned_model, dataset, output_file)
 
-    print("Evaluating with OpenAI GPT-3...")
-    gpt3_results = evaluate_spell_checker(check_spelling_gpt3, dataset)
-    print(gpt3_results[['Accuracy', 'Levenshtein']].mean())
-
-    for results, name in zip([pyspell_results, textblob_results, fine_tuned_results, gpt3_results],
-                             ["PySpellChecker", "TextBlob", "Fine tuned model", "GPT-3"]):
-        print(f"{name} Accuracy: {results['Accuracy'].mean()}")
-        print(f"{name} Average Levenshtein Distance: {results['Levenshtein'].mean()}")
+    print("Evaluating with OpenAI GPT-3.5...")
+    evaluate_spell_checker(check_spelling_gpt3, dataset, output_file)
 
 if __name__ == "__main__":
     main()
