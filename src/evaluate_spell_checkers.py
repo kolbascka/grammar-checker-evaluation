@@ -14,6 +14,14 @@ load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Dictionary to map evaluation functions to model names
+MODEL_NAMES = {
+    "check_spelling_pyspellchecker": "PySpellChecker",
+    "check_spelling_textblob": "TextBlob",
+    "check_spelling_finetuned_model": "Fine-tuned Model",
+    "check_spelling_gpt3": "GPT-3.5"
+}
+
 def load_combined_dataset(filepath='datasets/combined_spelling_dataset.csv'):
     return pd.read_csv(filepath)
 
@@ -64,6 +72,7 @@ def evaluate_spell_checker(spell_checker_func, dataset, output_file="evaluation_
     results = []
     y_true = []
     y_pred = []
+    model_name = MODEL_NAMES.get(spell_checker_func.__name__, "Unknown Model")
 
     for _, row in dataset.iterrows():
         misspelled = row['Misspelled']
@@ -92,7 +101,7 @@ def evaluate_spell_checker(spell_checker_func, dataset, output_file="evaluation_
 
     # Save metrics to dictionary and then to CSV
     metrics = {
-        "Model": spell_checker_func.__name__,
+        "Model": model_name,
         "Accuracy": avg_accuracy,
         "Average Levenshtein Distance": avg_levenshtein,
         "Precision": precision,
